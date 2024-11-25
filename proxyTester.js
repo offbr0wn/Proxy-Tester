@@ -1,12 +1,10 @@
 import fs from "fs";
-import ytdl from "ytdl-core";
+import ytdl from "@distube/ytdl-core";
 import pLimit from "p-limit";
 import minimist from "minimist";
-import {HttpsProxyAgent} from "https-proxy-agent";
 
-// const ytdl = require('ytdl-core');
 // Configurable constants
-const TIMEOUT_MS = 6000; // Timeout for each proxy test
+const TIMEOUT_MS = 5000; // Timeout for each proxy test
 
 // Helper: Read cookies safely
 function readCookies(filePath) {
@@ -39,12 +37,11 @@ async function readProxiesFromFile(filePath) {
 // Function to test a single proxy
 // Function to test a single proxy
 async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
-  const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
-  // const agent = ytdl.createProxyAgent(
-  //   { uri: proxyUrl },
-  //   JSON.parse(fs.readFileSync("cookies.json"))
-  // );
-  const agent =new HttpsProxyAgent(proxyUrl);
+  const proxyUrl = proxy.startsWith("http") ? proxy : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
+  const agent = ytdl.createProxyAgent(
+    { uri: proxyUrl },
+    JSON.parse(fs.readFileSync("cookies.json"))
+  );
 
   try {
     const timeoutPromise = new Promise((_, reject) =>
@@ -78,7 +75,7 @@ async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
 // Function to get video info
 async function getVideoInfo(url, formatType, quality, agent) {
   try {
-    const info = await ytdl.getInfo(url, { requestOptions: { agent } });
+    const info = await ytdl.getInfo(url, { agent });
     const bestFormat = ytdl.chooseFormat(info.formats, {
       quality: formatType === "mp3" ? "highestaudio" : null,
       filter: (format) => {
@@ -120,7 +117,7 @@ async function main() {
     args.url || "https://youtu.be/jKcHOJDwm9A?si=OJwWI10TvE_BnILj";
   const formatType = args.format || "mp4";
   const quality = args.quality || "1080p";
-  const concurrency = args.concurrency || 5000;
+  const concurrency = args.concurrency || 10000;
 
   try {
     const cookies = readCookies("cookies.json");
