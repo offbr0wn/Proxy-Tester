@@ -2,9 +2,9 @@ import fs from "fs";
 import ytdl from "@distube/ytdl-core";
 import pLimit from "p-limit";
 import minimist from "minimist";
-
+import YTDlpWrap from "yt-dlp-wrap";
 // Configurable constants
-const TIMEOUT_MS = 2900; // Timeout for each proxy test
+const TIMEOUT_MS = 20000; // Timeout for each proxy test
 
 // Helper: Read cookies safely
 function readCookies(filePath) {
@@ -22,17 +22,6 @@ const isValidProxy = (proxy) => {
 };
 
 // Function to read proxies from a file
-// async function readProxiesFromFile(filePath) {
-//   try {
-//     const data = await fs.promises.readFile(filePath, "utf8");
-//     return data
-//       .split("\n")
-//       .map((line) => line.trim())
-//       .filter(isValidProxy);
-//   } catch (error) {
-//     throw new Error(`Error reading proxies file: ${error.message}`);
-//   }
-// }
 async function readProxiesFromFile(filePath) {
   try {
     const data = await fs.promises.readFile(filePath, "utf8");
@@ -50,13 +39,14 @@ async function readProxiesFromFile(filePath) {
   }
 }
 
-// Function to test a single proxy
-// Function to test a single proxy
+// Function to test a single proxy for video info
 async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
-  const proxyUrl = proxy.startsWith("http") ? proxy : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
+  const proxyUrl = proxy.startsWith("http")
+    ? proxy
+    : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
   const agent = ytdl.createProxyAgent(
     { uri: proxyUrl },
-    JSON.parse(fs.readFileSync("cookies.json"))
+    cookies
   );
 
   try {
@@ -123,17 +113,69 @@ async function testProxies(
       limit(() => testProxy(proxy, videoUrl, formatType, quality, cookies))
     )
   );
-  return results.filter(Boolean);
+  return results.filter(Boolean); // Filter out invalid proxies
+}
+
+// Function to download video using a proxy
+async function downloadBasicWay(proxy, url, formatType, quality, cookies) {
+  const proxyUrl = proxy.startsWith("http")
+    ? proxy
+    : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
+  const agent = ytdl.createProxyAgent(
+    { uri: proxyUrl},
+    cookies,
+
+  );
+
+  try {
+    const info = await ytdl.getInfo(url, { agent });
+    const bestFormat = ytdl.chooseFormat(info.formats, {
+      filter: (format) => {
+        if (formatType === "mp3") {
+          return format?.mimeType?.match(/audio/);
+        }
+        return (
+          format.container === formatType && format.qualityLabel === quality
+        );
+      },
+    });
+
+    console.log(`Attempting download with proxy: ${proxy}`);
+    const ytDownload = ytdl(url, { format: bestFormat, agent });
+
+    const filePath = `./${info.videoDetails.title}.${bestFormat.container}`;
+    const writeStream = fs.createWriteStream(filePath);
+
+    ytDownload.pipe(writeStream);
+
+    return new Promise((resolve, reject) => {
+      ytDownload.on("end", () => {
+        console.log(`Download successful with proxy: ${proxy}`);
+        resolve(proxy);
+      });
+
+      ytDownload.on("error", (error) => {
+        console.error(`Download failed with proxy ${proxy}: ${error.message}`);
+        reject(error);
+      });
+    });
+  } catch (error) {
+    console.error(
+      `Error in downloadBasicWay with proxy ${proxy}: ${error.message}`
+    );
+    throw error;
+  }
 }
 
 // Main function
 async function main() {
   const args = minimist(process.argv.slice(2));
   const videoUrl =
-    args.url || "https://www.youtube.com/watch?v=KLuTLF3x9sA&ab_channel=RelaxationFilm";
-  const formatType = args.format || "mp4";
-  const quality = args.quality || "1080p";
-  const concurrency = args.concurrency || 10000;
+    args.url ||
+    "https://www.youtube.com/watch?v=WbLoRwtLT-Q&t=516s&ab_channel=Oliur%2FUltraLinx";
+  const formatType = args.format || "webm";
+  const quality = args.quality || "1440p";
+  const concurrency = args.concurrency || 100;
 
   try {
     const cookies = readCookies("cookies.json");
@@ -152,6 +194,22 @@ async function main() {
     );
 
     console.log("Working proxies:", workingProxies);
+
+    if (workingProxies.length > 0) {
+      for (const proxy of workingProxies) {
+        try {
+          await downloadBasicWay(proxy, videoUrl, formatType, quality, cookies);
+          console.log(`Video successfully downloaded using proxy: ${proxy}`);
+          break; // Stop testing once a download succeeds
+        } catch (error) {
+          console.error(`Download failed with proxy: ${proxy}`);
+          // Continue to the next proxy if the download fails
+        }
+      }
+    } else {
+      console.error("No working proxies found.");
+    }
+
     fs.writeFileSync("working_proxies.txt", workingProxies.join("\n"), "utf8");
   } catch (error) {
     console.error(`Error: ${error.message}`);
@@ -160,3 +218,5 @@ async function main() {
 
 // Execute main function
 main();
+
+

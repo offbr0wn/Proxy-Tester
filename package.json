@@ -15,6 +15,9 @@
     "https-proxy-agent": "^7.0.5",
     "minimist": "^1.2.8",
     "p-limit": "^6.1.0",
-    "ytdl-core": "^4.11.5"
+    "socks-proxy-agent": "^8.0.4",
+    "yt-dlp-wrap": "^2.3.12",
+    "ytdl-core": "^4.11.5",
+    "ytdlp-nodejs": "^0.1.5"
   }
 }
