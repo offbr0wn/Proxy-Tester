@@ -4,7 +4,7 @@ import pLimit from "p-limit";
 import minimist from "minimist";
 import YTDlpWrap from "yt-dlp-wrap";
 // Configurable constants
-const TIMEOUT_MS = 20000; // Timeout for each proxy test
+const TIMEOUT_MS = 5000; // Timeout for each proxy test
 
 // Helper: Read cookies safely
 function readCookies(filePath) {
@@ -30,10 +30,11 @@ async function readProxiesFromFile(filePath) {
       .map((line) => line.trim())
       .filter((line) => line.includes(":")) // Ensure valid lines
       .map((line) => {
-        const [host, port] = line.split(":"); // Extract only host and port
-        return `${host}:${port}`;
+        const [host, port, username, password] = line.split(":"); // Extract only host and port
+        //  console.log(`${username}:${password}@${host}:${port}`)
+        return `${username}:${password}@${host}:${port}`;
       })
-      .filter(isValidProxy); // Validate the extracted host:port
+      // .filter(isValidProxy); // Validate the extracted host:port
   } catch (error) {
     throw new Error(`Error reading proxies file: ${error.message}`);
   }
@@ -41,13 +42,9 @@ async function readProxiesFromFile(filePath) {
 
 // Function to test a single proxy for video info
 async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
-  const proxyUrl = proxy.startsWith("http")
-    ? proxy
-    : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
-  const agent = ytdl.createProxyAgent(
-    { uri: proxyUrl },
-    cookies
-  );
+  const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
+  // console.log(proxyUrl);
+  const agent = ytdl.createProxyAgent({ uri: proxyUrl }, cookies);
 
   try {
     const timeoutPromise = new Promise((_, reject) =>
@@ -118,14 +115,8 @@ async function testProxies(
 
 // Function to download video using a proxy
 async function downloadBasicWay(proxy, url, formatType, quality, cookies) {
-  const proxyUrl = proxy.startsWith("http")
-    ? proxy
-    : `http://szkvlcwz:53bony2kwsjb@${proxy}`;
-  const agent = ytdl.createProxyAgent(
-    { uri: proxyUrl},
-    cookies,
-
-  );
+  const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
+  const agent = ytdl.createProxyAgent({ uri: proxyUrl }, cookies);
 
   try {
     const info = await ytdl.getInfo(url, { agent });
@@ -175,7 +166,7 @@ async function main() {
     "https://www.youtube.com/watch?v=WbLoRwtLT-Q&t=516s&ab_channel=Oliur%2FUltraLinx";
   const formatType = args.format || "webm";
   const quality = args.quality || "1440p";
-  const concurrency = args.concurrency || 100;
+  const concurrency = args.concurrency || 4000;
 
   try {
     const cookies = readCookies("cookies.json");
@@ -218,5 +209,3 @@ async function main() {
 
 // Execute main function
 main();
-
-
