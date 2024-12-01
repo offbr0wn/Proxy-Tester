@@ -3,9 +3,27 @@ import ytdl from "@distube/ytdl-core";
 import pLimit from "p-limit";
 import minimist from "minimist";
 import YTDlpWrap from "yt-dlp-wrap";
-// Configurable constants
-const TIMEOUT_MS = 5000; // Timeout for each proxy test
+import https from "https";
 
+// Configurable constants
+const TIMEOUT_MS = 10000; // Timeout for each proxy test
+
+function formatCookies(cookieObj) {
+  return Object.entries(cookieObj)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("; ");
+}
+function createProxyAgent(proxyUrl, cookies) {
+  const agentOptions = {
+    uri: proxyUrl,
+
+    // rejectUnauthorized: false, // Disable cert validation// Disable TLS/SSL certificate validation for this agent
+    headers: {
+      Cookie: formatCookies(cookies),
+    },
+  };
+  return ytdl.createProxyAgent(agentOptions);
+}
 // Helper: Read cookies safely
 function readCookies(filePath) {
   try {
@@ -31,10 +49,13 @@ async function readProxiesFromFile(filePath) {
       .filter((line) => line.includes(":")) // Ensure valid lines
       .map((line) => {
         const [host, port, username, password] = line.split(":"); // Extract only host and port
-        //  console.log(`${username}:${password}@${host}:${port}`)
-        return `${username}:${password}@${host}:${port}`;
-      })
-      // .filter(isValidProxy); // Validate the extracted host:port
+
+        if (username && password) {
+          return `${username}:${password}@${host}:${port}`;
+        }
+        return `${host}:${port}`;
+      });
+    // .filter(isValidProxy); // Validate the extracted host:port
   } catch (error) {
     throw new Error(`Error reading proxies file: ${error.message}`);
   }
@@ -44,7 +65,7 @@ async function readProxiesFromFile(filePath) {
 async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
   const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
   // console.log(proxyUrl);
-  const agent = ytdl.createProxyAgent({ uri: proxyUrl }, cookies);
+  const agent = createProxyAgent(proxyUrl, cookies);
 
   try {
     const timeoutPromise = new Promise((_, reject) =>
@@ -116,7 +137,7 @@ async function testProxies(
 // Function to download video using a proxy
 async function downloadBasicWay(proxy, url, formatType, quality, cookies) {
   const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
-  const agent = ytdl.createProxyAgent({ uri: proxyUrl }, cookies);
+  const agent = createProxyAgent(proxyUrl, cookies);
 
   try {
     const info = await ytdl.getInfo(url, { agent });
