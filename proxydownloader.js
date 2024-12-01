@@ -6,7 +6,7 @@ import YTDlpWrap from "yt-dlp-wrap";
 import https from "https";
 
 // Configurable constants
-const TIMEOUT_MS = 10000; // Timeout for each proxy test
+const TIMEOUT_MS = 50000; // Timeout for each proxy test
 
 function formatCookies(cookieObj) {
   return Object.entries(cookieObj)
@@ -16,10 +16,10 @@ function formatCookies(cookieObj) {
 function createProxyAgent(proxyUrl, cookies) {
   const agentOptions = {
     uri: proxyUrl,
-
-    // rejectUnauthorized: false, // Disable cert validation// Disable TLS/SSL certificate validation for this agent
+    rejectUnauthorized: false, // Disable cert validation// Disable TLS/SSL certificate validation for this agent
     headers: {
       Cookie: formatCookies(cookies),
+      host: "www.youtube.com", // Force Host header
     },
   };
   return ytdl.createProxyAgent(agentOptions);
@@ -66,7 +66,6 @@ async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
   const proxyUrl = proxy.startsWith("http") ? proxy : `http://${proxy}`;
   // console.log(proxyUrl);
   const agent = createProxyAgent(proxyUrl, cookies);
-
   try {
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(
@@ -99,7 +98,9 @@ async function testProxy(proxy, videoUrl, formatType, quality, cookies) {
 // Function to get video info
 async function getVideoInfo(url, formatType, quality, agent) {
   try {
-    const info = await ytdl.getInfo(url, { agent });
+    const info = await ytdl.getInfo(url, {
+      agent,
+    });
     const bestFormat = ytdl.chooseFormat(info.formats, {
       quality: formatType === "mp3" ? "highestaudio" : null,
       filter: (format) => {
@@ -140,7 +141,9 @@ async function downloadBasicWay(proxy, url, formatType, quality, cookies) {
   const agent = createProxyAgent(proxyUrl, cookies);
 
   try {
-    const info = await ytdl.getInfo(url, { agent });
+    const info = await ytdl.getInfo(url, {
+      agent,
+    });
     const bestFormat = ytdl.chooseFormat(info.formats, {
       filter: (format) => {
         if (formatType === "mp3") {
@@ -153,7 +156,9 @@ async function downloadBasicWay(proxy, url, formatType, quality, cookies) {
     });
 
     console.log(`Attempting download with proxy: ${proxy}`);
-    const ytDownload = ytdl(url, { format: bestFormat, agent });
+    const ytDownload = ytdl(url, {
+      format: bestFormat,
+    });
 
     const filePath = `./${info.videoDetails.title}.${bestFormat.container}`;
     const writeStream = fs.createWriteStream(filePath);
